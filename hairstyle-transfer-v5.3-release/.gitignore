@@ -223,3 +223,6 @@ settings.json
 .env.*.production
 .env.*.staging
 .env.*.test
+
+# Claude Code settings
+.claude/

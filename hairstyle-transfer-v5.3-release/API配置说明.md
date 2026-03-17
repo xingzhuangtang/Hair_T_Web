@@ -21,7 +21,7 @@
 
 ```bash
 # 设置API密钥
-export BAILIAN_API_KEY='sk-3b506952dc8847f2b46de0e2a8d303b0'
+export BAILIAN_API_KEY='your-bailian-api-key-here'
 
 # 运行应用
 python app.py
@@ -31,7 +31,7 @@ python app.py
 
 ```bash
 # 添加到 ~/.zshrc
-echo "export BAILIAN_API_KEY='sk-3b506952dc8847f2b46de0e2a8d303b0'" >> ~/.zshrc
+echo "export BAILIAN_API_KEY='your-bailian-api-key-here'" >> ~/.zshrc
 
 # 重新加载配置
 source ~/.zshrc
@@ -46,7 +46,7 @@ python app.py
 
 ```python
 import os
-os.environ['BAILIAN_API_KEY'] = 'sk-3b506952dc8847f2b46de0e2a8d303b0'
+os.environ['BAILIAN_API_KEY'] = 'your-bailian-api-key-here'
 ```
 
 ---
