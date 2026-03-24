@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote set-url origin https://github.com/xingzhuangtang/Hair_T_Web.git)",
+      "Bash(git add hairstyle-transfer-5.31/)"
+    ]
+  }
+}
