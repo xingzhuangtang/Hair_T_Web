@@ -125,9 +125,10 @@ def transfer():
         customer_oss_url  = _upload_oss(customer_path)
 
         # 读取请求参数
-        model_version  = request.form.get('model_version', 'v1')
-        enable_sketch  = request.form.get('enable_sketch', 'false').lower() == 'true'
-        sketch_style   = request.form.get('sketch_style', 'ink')
+        model_version   = request.form.get('model_version', 'v1')
+        face_shape_level = int(request.form.get('face_shape_level', '50'))
+        enable_sketch   = request.form.get('enable_sketch', 'false').lower() == 'true'
+        sketch_style    = request.form.get('sketch_style', 'ink')
 
         # 执行发型迁移
         service = HairTransferService()
@@ -135,6 +136,7 @@ def transfer():
             hairstyle_url=hairstyle_oss_url,
             customer_url=customer_oss_url,
             model_version=model_version,
+            face_shape_level=face_shape_level,
             save_dir=RESULT_DIR,
             enable_sketch=enable_sketch,
             sketch_style=sketch_style,
@@ -148,6 +150,7 @@ def transfer():
                 'elapsed_time': info['elapsed_time'],
                 'template_id': info.get('template_id'),
                 'model_version': model_version,
+                'face_shape_level': face_shape_level,
             }
         }
 
