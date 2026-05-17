@@ -10,9 +10,14 @@ import time
 import base64
 import tempfile
 import requests
+import oss2
 import cv2
 import numpy as np
 from typing import Optional, Tuple
+
+# OSS 配置（与 app.py 保持一致）
+OSS_ENDPOINT = os.getenv('OSS_ENDPOINT', 'oss-cn-shanghai.aliyuncs.com')
+OSS_BUCKET   = os.getenv('OSS_BUCKET', 'hair-transfer-bucket')
 
 from alibabacloud_facebody20191230.client import Client as FaceBodyClient
 from alibabacloud_facebody20191230 import models as facebody_models
@@ -79,6 +84,57 @@ class HairTransferService:
         return result_url
 
     # ──────────────────────────────────────────────
+    # 脸型微调（LiquifyFace）
+    # ──────────────────────────────────────────────
+
+    def _liquify_face(self, local_image: np.ndarray, face_shape_level: int) -> np.ndarray:
+        """
+        将本地图像上传到 OSS 后调用阿里云瘦脸 API，返回微调后的图像。
+        face_shape_level: 0-100（前端滑杆值），映射到 slim_degree 0-2
+          0=最强瘦脸（slim_degree=0），100=不处理（slim_degree=2，跳过）
+        """
+        if face_shape_level >= 100:
+            print("⚠️  脸型控制=100，跳过瘦脸微调")
+            return local_image
+
+        # 映射：0-100 -> 0-2
+        slim_degree = round((100 - face_shape_level) / 100 * 2, 1)
+        if slim_degree < 0.1:
+            print(f"⚠️  脸型控制={face_shape_level}%，瘦脸强度过低（slim_degree={slim_degree}），跳过")
+            return local_image
+
+        # 写入临时文件 → 上传 OSS
+        tmp = os.path.join(tempfile.gettempdir(), f'liquify_input_{int(time.time())}.jpg')
+        cv2.imwrite(tmp, local_image)
+        oss_url = self._upload_for_liquify(tmp)
+
+        req = facebody_models.LiquifyFaceRequest(
+            image_url=oss_url,
+            slim_degree=slim_degree,
+        )
+        resp = self.facebody.liquify_face(req)
+        if not resp.body or not resp.body.data:
+            raise RuntimeError("脸型微调失败：API 返回数据为空")
+
+        result_url = resp.body.data.image_url
+        print(f"✅ 脸型微调成功: {result_url[:60]}... (slim_degree={slim_degree})")
+        return self._download(result_url)
+
+    def _upload_for_liquify(self, local_path: str) -> str:
+        """上传本地文件到临时 OSS 位置，供 LiquifyFace API 使用。"""
+        import uuid as _uuid
+        ak_id = os.getenv('ALIBABA_CLOUD_ACCESS_KEY_ID')
+        ak_secret = os.getenv('ALIBABA_CLOUD_ACCESS_KEY_SECRET')
+        auth = oss2.Auth(ak_id, ak_secret)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
+        ext = os.path.splitext(local_path)[1]
+        obj = f"hairstyle-transfer/tmp/{_uuid.uuid4().hex[:8]}_{int(time.time())}{ext}"
+        result = bucket.put_object_from_file(obj, local_path)
+        if result.status != 200:
+            raise RuntimeError(f"OSS 临时上传失败: HTTP {result.status}")
+        return f"https://{OSS_BUCKET}.{OSS_ENDPOINT}/{obj}"
+
+    # ──────────────────────────────────────────────
     # 图像下载
     # ──────────────────────────────────────────────
 
@@ -143,6 +199,7 @@ class HairTransferService:
         hairstyle_url: str,
         customer_url: str,
         model_version: str = 'v1',
+        face_shape_level: int = 50,
         save_dir: Optional[str] = None,
         enable_sketch: bool = False,
         sketch_style: str = 'ink',
@@ -154,6 +211,7 @@ class HairTransferService:
             hairstyle_url:  发型参考图 OSS URL（完整人像）
             customer_url:   客户照片 OSS URL
             model_version:  v1=脸型适配，v2=非脸型适配
+            face_shape_level: 脸型控制 0-100（0=最强瘦脸，100=不处理）
             save_dir:       结果保存目录
             enable_sketch:  是否启用素描效果
             sketch_style:   素描风格 pencil/anime/ink/vivid
@@ -187,6 +245,18 @@ class HairTransferService:
             save_path = None
         result_image = self._download(result_url, save_path)
         info['save_path'] = save_path
+
+        # 步骤3.5：脸型微调（可选）
+        if face_shape_level < 100:
+            print(f"\n🔧 步骤3.5: 脸型微调（slim_degree={face_shape_level}）")
+            try:
+                result_image = self._liquify_face(result_image, face_shape_level)
+                if save_path:
+                    cv2.imwrite(save_path, result_image)
+                info['face_shape_level'] = face_shape_level
+            except Exception as e:
+                print(f"⚠️  脸型微调失败（返回融合结果）: {e}")
+                info['face_shape_error'] = str(e)
 
         # 步骤4：素描转换（可选）
         if enable_sketch:

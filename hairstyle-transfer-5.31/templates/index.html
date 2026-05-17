@@ -314,6 +314,13 @@
         </div>
 
         <div class="option-group">
+            <label>脸型控制: <span id="faceShapeValue">50</span>%</label>
+            <input type="range" id="faceShapeLevel" min="0" max="100" value="50"
+                   oninput="document.getElementById('faceShapeValue').textContent=this.value">
+            <div class="hint-text">0=最强瘦脸 · 100=保持原貌，拖动滑杆调节脸型融合程度</div>
+        </div>
+
+        <div class="option-group">
             <label>
                 <input type="checkbox" id="enableSketch" style="margin-right:6px">
                 启用素描风格转换
@@ -510,6 +517,7 @@
             fd.append('customer_image', customerFile);
             fd.append('original_hair_url', originalHairUrl);
             fd.append('model_version', document.getElementById('modelVersion').value);
+            fd.append('face_shape_level', document.getElementById('faceShapeLevel').value);
             fd.append('enable_sketch', enableSketch);
             fd.append('sketch_style', document.getElementById('sketchStyle').value);
 
@@ -547,7 +555,7 @@
             <div class="result-item">
                 <p>发型迁移结果</p>
                 <img src="${data.result_url}" onclick="openModal(this.src)" alt="迁移结果">
-                <p style="color:#888;font-size:12px;margin-top:6px">耗时 ${data.info.elapsed_time} · 模型 ${data.info.model_version}</p>
+                <p style="color:#888;font-size:12px;margin-top:6px">耗时 ${data.info.elapsed_time} · 模型 ${data.info.model_version} · 脸型控制 ${data.info.face_shape_level}%</p>
             </div>`;
 
         // 素描图（如果有）
